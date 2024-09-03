@@ -51,6 +51,14 @@ const (
 	SVCNatPolicyNat64 = SVCNatPolicy("Nat64")
 )
 
+type SVCMode string
+
+const (
+	SVCModeDefault = SVCMode("default")
+	SVCModeDSR     = SVCMode("dsr")
+	SVCModeSNAT    = SVCMode("snat")
+)
+
 // ServiceFlags is the datapath representation of the service flags that can be
 // used (lb{4,6}_service.flags)
 type ServiceFlags uint16
@@ -72,6 +80,7 @@ const (
 	serviceFlagIntLocalScope   = 1 << 12
 	serviceFlagTwoScopes       = 1 << 13
 	serviceFlagQuarantined     = 1 << 14
+	serviceFlagDSRMode         = 1 << 15
 )
 
 type SvcFlagParam struct {
@@ -85,6 +94,7 @@ type SvcFlagParam struct {
 	L7LoadBalancer   bool
 	LoopbackHostport bool
 	Quarantined      bool
+	DSRMode          bool
 }
 
 // NewSvcFlag creates service flag
@@ -137,6 +147,9 @@ func NewSvcFlag(p *SvcFlagParam) ServiceFlags {
 	}
 	if p.Quarantined {
 		flags |= serviceFlagQuarantined
+	}
+	if p.DSRMode {
+		flags |= serviceFlagDSRMode
 	}
 
 	return flags
@@ -240,6 +253,11 @@ func (s ServiceFlags) String() string {
 	}
 	if s&serviceFlagQuarantined != 0 {
 		str = append(str, "quarantined")
+	}
+	if s&serviceFlagDSRMode != 0 {
+		str = append(str, "dsr")
+	} else {
+		str = append(str, "snat")
 	}
 	return strings.Join(str, ", ")
 }
