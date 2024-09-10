@@ -112,8 +112,9 @@ type Repository struct {
 	// Mutex protects the whole policy tree
 	Mutex lock.RWMutex
 
-	rules           map[ruleKey]*rule
-	rulesByResource map[ipcachetypes.ResourceID]map[ruleKey]*rule
+	rules            map[ruleKey]*rule
+	rulesByNamespace map[string]map[ruleKey]struct{}
+	rulesByResource  map[ipcachetypes.ResourceID]map[ruleKey]*rule
 
 	// We will need a way to synthesize a rule key for rules without a resource;
 	// these are - in practice - very rare, as they only come from the local API,
@@ -200,11 +201,12 @@ func NewStoppedPolicyRepository(
 ) *Repository {
 	selectorCache := NewSelectorCache(initialIDs)
 	repo := &Repository{
-		rules:           make(map[ruleKey]*rule),
-		rulesByResource: make(map[ipcachetypes.ResourceID]map[ruleKey]*rule),
-		selectorCache:   selectorCache,
-		certManager:     certManager,
-		secretManager:   secretManager,
+		rules:            make(map[ruleKey]*rule),
+		rulesByNamespace: make(map[string]map[ruleKey]struct{}),
+		rulesByResource:  make(map[ipcachetypes.ResourceID]map[ruleKey]*rule),
+		selectorCache:    selectorCache,
+		certManager:      certManager,
+		secretManager:    secretManager,
 	}
 	repo.revision.Store(1)
 	repo.policyCache = NewPolicyCache(repo, idmgr)
@@ -451,6 +453,10 @@ func (p *Repository) ReplaceByResourceLocked(rules api.Rules, resource ipcachety
 
 func (p *Repository) insert(r *rule) {
 	p.rules[r.key] = r
+	if _, ok := p.rulesByNamespace[r.key.resource.Namespace()]; !ok {
+		p.rulesByNamespace[r.key.resource.Namespace()] = make(map[ruleKey]struct{})
+	}
+	p.rulesByNamespace[r.key.resource.Namespace()][r.key] = struct{}{}
 	rid := r.key.resource
 	if len(rid) > 0 {
 		if p.rulesByResource[rid] == nil {
@@ -467,6 +473,10 @@ func (p *Repository) del(key ruleKey) {
 		return
 	}
 	delete(p.rules, key)
+	delete(p.rulesByNamespace[key.resource.Namespace()], key)
+	if len(p.rulesByNamespace[key.resource.Namespace()]) == 0 {
+		delete(p.rulesByNamespace, key.resource.Namespace())
+	}
 
 	rid := key.resource
 	if len(rid) > 0 && p.rulesByResource[rid] != nil {
@@ -697,9 +707,16 @@ func (p *Repository) resolvePolicyLocked(securityIdentity *identity.Identity) (*
 	// to not have to iterate through the entire rule list multiple times and
 	// perform the matching decision again when computing policy for each
 	// protocol layer, which is quite costly in terms of performance.
+
+	lbls := securityIdentity.LabelArray
+	policyCtx := policyContext{
+		repo: p,
+		ns:   lbls.Get(labels.LabelSourceK8sKeyPrefix + k8sConst.PodNamespaceLabel),
+	}
+
 	ingressEnabled, egressEnabled,
 		matchingRules :=
-		p.computePolicyEnforcementAndRules(securityIdentity)
+		p.computePolicyEnforcementAndRules(securityIdentity, &policyCtx)
 
 	calculatedPolicy := &selectorPolicy{
 		Revision:             p.GetRevision(),
@@ -709,7 +726,6 @@ func (p *Repository) resolvePolicyLocked(securityIdentity *identity.Identity) (*
 		EgressPolicyEnabled:  egressEnabled,
 	}
 
-	lbls := securityIdentity.LabelArray
 	ingressCtx := SearchContext{
 		To:          lbls,
 		rulesSelect: true,
@@ -723,11 +739,6 @@ func (p *Repository) resolvePolicyLocked(securityIdentity *identity.Identity) (*
 	if option.Config.TracingEnabled() {
 		ingressCtx.Trace = TRACE_ENABLED
 		egressCtx.Trace = TRACE_ENABLED
-	}
-
-	policyCtx := policyContext{
-		repo: p,
-		ns:   lbls.Get(labels.LabelSourceK8sKeyPrefix + k8sConst.PodNamespaceLabel),
 	}
 
 	if ingressEnabled {
@@ -757,7 +768,7 @@ func (p *Repository) resolvePolicyLocked(securityIdentity *identity.Identity) (*
 // the set of labels of the given security identity.
 //
 // Must be called with repo mutex held for reading.
-func (p *Repository) computePolicyEnforcementAndRules(securityIdentity *identity.Identity) (
+func (p *Repository) computePolicyEnforcementAndRules(securityIdentity *identity.Identity, policyCtx PolicyContext) (
 	ingress, egress bool,
 	matchingRules ruleSlice,
 ) {
@@ -777,7 +788,16 @@ func (p *Repository) computePolicyEnforcementAndRules(securityIdentity *identity
 	}
 
 	matchingRules = []*rule{}
-	for _, r := range p.rules {
+	// Match cluster-wide rules
+	for rKey := range p.rulesByNamespace[""] {
+		r := p.rules[rKey]
+		if r.matchesSubject(securityIdentity) {
+			matchingRules = append(matchingRules, r)
+		}
+	}
+	// Match namespace-wide rules
+	for rKey := range p.rulesByNamespace[policyCtx.GetNamespace()] {
+		r := p.rules[rKey]
 		if r.matchesSubject(securityIdentity) {
 			matchingRules = append(matchingRules, r)
 		}
