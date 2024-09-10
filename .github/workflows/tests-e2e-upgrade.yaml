@@ -58,6 +58,7 @@ concurrency:
 
 env:
   cilium_cli_ci_version:
+  test_concurrency: 5
 
 jobs:
   echo-inputs:
@@ -566,6 +567,7 @@ jobs:
             --include-conn-disrupt-test \
             --conn-disrupt-test-restarts-path "./cilium-conn-disrupt-restarts" \
             --flush-ct \
+            --test-concurrency=${{ env.test_concurrency }} \
             --sysdump-hubble-flows-count=1000000 --sysdump-hubble-flows-timeout=5m \
             --sysdump-output-filename "cilium-sysdump-${{ matrix.name }}-<ts>" \
             --junit-file "cilium-junits/${{ env.job_name }} (${{ matrix.name }}).xml" \
@@ -608,6 +610,7 @@ jobs:
             --include-conn-disrupt-test \
             --conn-disrupt-test-restarts-path "./cilium-conn-disrupt-restarts" \
             --flush-ct \
+            --test-concurrency=${{ env.test_concurrency }} \
             --sysdump-hubble-flows-count=1000000 --sysdump-hubble-flows-timeout=5m \
             --sysdump-output-filename "cilium-sysdump-${{ matrix.name }}-<ts>" \
             --junit-file "cilium-junits/${{ env.job_name }} (${{ matrix.name }}).xml" \
