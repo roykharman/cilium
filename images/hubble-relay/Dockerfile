@@ -27,15 +27,21 @@ ARG TARGETARCH
 ARG MODIFIERS
 
 WORKDIR /go/src/github.com/cilium/cilium
-RUN --mount=type=bind,readwrite,target=/go/src/github.com/cilium/cilium --mount=target=/root/.cache,type=cache --mount=target=/go/pkg,type=cache \
-    make GOARCH=${TARGETARCH} DESTDIR=/out/${TARGETOS}/${TARGETARCH} ${MODIFIERS} \
+RUN --mount=type=bind,readwrite,target=/go/src/github.com/cilium/cilium \
+    make \
+     GOCACHE='/go/src/github.com/cilium/cilium/hack/cache/go/.cache/go-build' \
+     GOMODCACHE='/go/src/github.com/cilium/cilium/hack/cache/go/pkg' \
+    GOARCH=${TARGETARCH} DESTDIR=/out/${TARGETOS}/${TARGETARCH} ${MODIFIERS} \
     build-container-hubble-relay install-container-binary-hubble-relay
 
 WORKDIR /go/src/github.com/cilium/cilium
 # licenses-all is a "script" that executes "go run" so its ARCH should be set
 # to the same ARCH specified in the base image of this Docker stage (BUILDARCH)
-RUN --mount=type=bind,readwrite,target=/go/src/github.com/cilium/cilium --mount=target=/root/.cache,type=cache --mount=target=/go/pkg,type=cache \
-    make GOARCH=${BUILDARCH} licenses-all && mv LICENSE.all /out/${TARGETOS}/${TARGETARCH}
+RUN --mount=type=bind,readwrite,target=/go/src/github.com/cilium/cilium \
+    make \
+     GOCACHE='/go/src/github.com/cilium/cilium/hack/cache/go/.cache/go-build' \
+     GOMODCACHE='/go/src/github.com/cilium/cilium/hack/cache/go/pkg' \
+    GOARCH=${BUILDARCH} licenses-all && mv LICENSE.all /out/${TARGETOS}/${TARGETARCH}
 
 # BUILDPLATFORM is an automatic platform ARG enabled by Docker BuildKit.
 # Represents the plataform where the build is happening, do not mix with
@@ -45,7 +51,9 @@ FROM --platform=${BUILDPLATFORM} ${GOLANG_IMAGE} AS gops
 # build-gops.sh will build both archs at the same time
 WORKDIR /go/src/github.com/cilium/cilium/images/runtime
 RUN apt-get update && apt-get install -y binutils-aarch64-linux-gnu binutils-x86-64-linux-gnu
-RUN --mount=type=bind,readwrite,target=/go/src/github.com/cilium/cilium --mount=target=/root/.cache,type=cache --mount=target=/go/pkg,type=cache \
+ENV GOCACHE='/go/src/github.com/cilium/cilium/hack/cache/go/.cache/go-build'
+ENV GOMODCACHE='/go/src/github.com/cilium/cilium/hack/cache/go/pkg'
+RUN --mount=type=bind,readwrite,target=/go/src/github.com/cilium/cilium \
     ./build-gops.sh
 
 #

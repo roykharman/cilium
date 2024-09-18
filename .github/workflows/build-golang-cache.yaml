@@ -1,0 +1,112 @@
+name: Build Golang Cache
+
+# Any change in triggers needs to be reflected in the concurrency group.
+on:
+  push:
+    branches:
+      - main
+      - ft/main/**
+
+  # If the cache was cleaned we should re-build the cache with the latest commit
+  workflow_run:
+    workflows:
+     - "Image CI Cache Cleaner"
+    branches:
+     - main
+     - ft/main/**
+    types:
+     - completed
+
+permissions: read-all
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.event.after }}
+  cancel-in-progress: true
+
+jobs:
+  generate_cache:
+    name: Build Golang Cache
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - name: Collect Workflow Telemetry
+        uses: catchpoint/workflow-telemetry-action@94c3c3d9567a0205de6da68a76c428ce4e769af1 # v2.0.0
+        with:
+          comment_on_pr: false
+
+      - name: Checkout code
+        uses: actions/checkout@692973e3d937129bcbf40652eb9f2f61becf3332 # v4.1.7
+        with:
+          persist-credentials: false
+          path: "cilium-checkout"
+
+      - name: Set cache keys
+        id: cache_keys
+        run: |
+          echo "go_cache_key=${{ runner.os }}-test-go-cache-${{ hashFiles('cilium-checkout/**/go.sum') }}" >> $GITHUB_OUTPUT
+          echo "ccache_cache_key=${{ runner.os }}-test-ccache-${{ hashFiles('cilium-checkout/bpf/**') }}" >> $GITHUB_OUTPUT
+
+      - name: Check for disk usage
+        shell: bash
+        run: |
+          df -h
+
+      - name: Move Source Code to /mnt directory
+        shell: bash
+        run: |
+          sudo mkdir -p /mnt/go/src/github.com/cilium
+          sudo chown $USER:$USER /mnt/go/src/github.com/cilium
+          mv cilium-checkout /mnt/go/src/github.com/cilium/cilium
+
+      # Load Golang cache build from GitHub
+      - name: Load Golang cache build from GitHub
+        uses: actions/cache@0c45773b623bea8c8e75f6c82b208c3cf94ea4f9 # v4.0.2
+        id: go-cache
+        with:
+          path: /mnt/go/src/github.com/cilium/cilium/hack/cache/go
+          key: ${{ steps.cache_keys.outputs.go_cache_key }}
+          restore-keys: |
+            ${{ runner.os }}-test-go-cache-
+
+      # Load CCache build from GitHub
+      - name: Load ccache cache build from GitHub
+        uses: actions/cache@0c45773b623bea8c8e75f6c82b208c3cf94ea4f9 # v4.0.2
+        id: ccache-cache
+        with:
+          path: /mnt/go/src/github.com/cilium/cilium/hack/cache/ccache
+          key: ${{ steps.cache_keys.outputs.ccache_cache_key }}
+          restore-keys: |
+            ${{ runner.os }}-test-ccache-
+
+      - name: Create cache directories if they don't exist
+        if: ${{ steps.go-cache.outputs.cache-hit != 'true' || steps.ccache-cache.outputs.cache-hit != 'true' }}
+        shell: bash
+        working-directory: "/mnt/go/src/github.com/cilium/cilium"
+        run: |
+          mkdir -p ./hack/cache/go/.cache/go-build
+          mkdir -p ./hack/cache/go/pkg
+          mkdir -p ./hack/cache/ccache/.ccache
+
+      - name: Build all programs
+        env:
+          CLANG: "ccache clang"
+          BUILDER_GOCACHE_DIR: "/mnt/go/src/github.com/cilium/cilium/hack/cache/go/.cache/go-build"
+          BUILDER_GOMODCACHE_DIR: "/mnt/go/src/github.com/cilium/cilium/hack/cache/go/pkg"
+          BUILDER_CCACHE_DIR: "/mnt/go/src/github.com/cilium/cilium/hack/cache/ccache/.ccache"
+        working-directory: "/mnt/go/src/github.com/cilium/cilium"
+        if: ${{ steps.go-cache.outputs.cache-hit != 'true' || steps.ccache-cache.outputs.cache-hit != 'true' }}
+        run: |
+          set -eu -o pipefail
+          contrib/scripts/builder.sh make CLANG="${CLANG}" GOARCH=amd64 build -j $(nproc) || exit 1
+          contrib/scripts/builder.sh make CLANG="${CLANG}" GOARCH=arm64 build -j $(nproc) || exit 1
+          contrib/scripts/builder.sh make CLANG="${CLANG}" GOARCH=amd64 -C cilium-cli -j $(nproc) || exit 1
+          contrib/scripts/builder.sh make CLANG="${CLANG}" GOARCH=amd64 LOCKDEBUG=1 RACE=1 build -j $(nproc) || exit 1
+          contrib/scripts/builder.sh make CLANG="${CLANG}" GOARCH=amd64 NOSTRIP=1 build -j $(nproc) || exit 1
+
+      - name: Reset cache ownership to GitHub runners user
+        if: ${{ steps.go-cache.outputs.cache-hit != 'true' || steps.ccache-cache.outputs.cache-hit != 'true' }}
+        working-directory: "/mnt/go/src/github.com/cilium/cilium"
+        shell: bash
+        run: |
+          sudo du -sh ./hack/cache/
+          sudo chown $USER:$USER -R ./hack/cache
