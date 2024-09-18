@@ -102,8 +102,8 @@ jobs:
         if: ${{ steps.go-cache.outputs.cache-hit != 'true' || steps.ccache-cache.outputs.cache-hit != 'true' }}
         run: |
           set -eu -o pipefail
-          contrib/scripts/builder.sh make CLANG="${CLANG}" GOARCH=amd64 build -j $(nproc) || exit 1
-          contrib/scripts/builder.sh make CLANG="${CLANG}" GOARCH=arm64 build -j $(nproc) || exit 1
+          contrib/scripts/builder.sh make CLANG="${CLANG}" GOARCH=amd64 -C daemon -j $(nproc) || exit 1
+          contrib/scripts/builder.sh make CLANG="${CLANG}" GOARCH=arm64 -C daemon -j $(nproc) || exit 1
           contrib/scripts/builder.sh make CLANG="${CLANG}" GOARCH=amd64 -C cilium-cli -j $(nproc) || exit 1
 
       - name: Reset cache ownership to GitHub runners user
