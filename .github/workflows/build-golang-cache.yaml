@@ -2,6 +2,11 @@ name: Build Golang Cache
 
 # Any change in triggers needs to be reflected in the concurrency group.
 on:
+  pull_request:
+    types:
+      - opened
+      - synchronize
+      - reopened
   push:
     branches:
       - main
@@ -26,7 +31,7 @@ concurrency:
 jobs:
   generate_cache:
     name: Build Golang Cache
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-latest-64-cores-256gb
     timeout-minutes: 30
     steps:
       - name: Collect Workflow Telemetry
