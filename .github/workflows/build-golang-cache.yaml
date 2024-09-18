@@ -33,6 +33,35 @@ jobs:
     name: Build Golang Cache
     runs-on: ubuntu-latest-64-cores-256gb
     timeout-minutes: 30
+    strategy:
+      matrix:
+        include:
+          - name: cilium
+            make-target: build-container
+
+          - name: cilium-cli
+            make-target: -C cilium-cli
+
+          - name: operator-aws
+            make-target: build-container-operator-aws
+
+          - name: operator-azure
+            make-target: build-container-operator-azure
+
+          - name: operator-alibabacloud
+            make-target: build-container-operator-alibabacloud
+
+          - name: operator-generic
+            make-target: build-container-operator-generic
+
+          - name: hubble-relay
+            make-target: build-container-hubble-relay
+
+          - name: clustermesh-apiserver
+            make-target: -C clustermesh-apiserver
+
+          - name: docker-plugin
+            make-target: -C plugins/cilium-docker
     steps:
       - name: Collect Workflow Telemetry
         uses: catchpoint/workflow-telemetry-action@94c3c3d9567a0205de6da68a76c428ce4e769af1 # v2.0.0
@@ -48,7 +77,7 @@ jobs:
       - name: Set cache keys
         id: cache_keys
         run: |
-          echo "go_cache_key=${{ runner.os }}-test-go-cache-${{ hashFiles('cilium-checkout/**/go.sum') }}" >> $GITHUB_OUTPUT
+          echo "go_cache_key=${{ runner.os }}-test-go-cache-${{ matrix.name }}-${{ hashFiles('cilium-checkout/**/go.sum') }}" >> $GITHUB_OUTPUT
           echo "ccache_cache_key=${{ runner.os }}-test-ccache-${{ hashFiles('cilium-checkout/bpf/**') }}" >> $GITHUB_OUTPUT
 
       - name: Check for disk usage
@@ -71,7 +100,7 @@ jobs:
           path: /mnt/go/src/github.com/cilium/cilium/hack/cache/go
           key: ${{ steps.cache_keys.outputs.go_cache_key }}
           restore-keys: |
-            ${{ runner.os }}-test-go-cache-
+            ${{ runner.os }}-test-go-cache-${{ matrix.name }}-
 
       # Load CCache build from GitHub
       - name: Load ccache cache build from GitHub
@@ -102,9 +131,12 @@ jobs:
         if: ${{ steps.go-cache.outputs.cache-hit != 'true' || steps.ccache-cache.outputs.cache-hit != 'true' }}
         run: |
           set -eu -o pipefail
-          contrib/scripts/builder.sh make CLANG="${CLANG}" GOARCH=amd64 -C daemon -j $(nproc) || exit 1
-          contrib/scripts/builder.sh make CLANG="${CLANG}" GOARCH=arm64 -C daemon -j $(nproc) || exit 1
-          contrib/scripts/builder.sh make CLANG="${CLANG}" GOARCH=amd64 -C cilium-cli -j $(nproc) || exit 1
+          contrib/scripts/builder.sh make CLANG="${CLANG}" GOARCH=amd64 ${{ matrix.make-target }} -j $(nproc) || exit 1
+          contrib/scripts/builder.sh make CLANG="${CLANG}" GOARCH=amd64 LOCKDEBUG=1 RACE=1 ${{ matrix.make-target }} -j $(nproc) || exit 1
+          contrib/scripts/builder.sh make CLANG="${CLANG}" GOARCH=amd64 NOSTRIP=1 ${{ matrix.make-target }} -j $(nproc) || exit 1
+          if [[ ${{ matrix.name }} != cilium-cli ]]; then
+            contrib/scripts/builder.sh make CLANG="${CLANG}" GOARCH=arm64 ${{ matrix.make-target }} -j $(nproc) || exit 1
+          fi
 
       - name: Reset cache ownership to GitHub runners user
         if: ${{ steps.go-cache.outputs.cache-hit != 'true' || steps.ccache-cache.outputs.cache-hit != 'true' }}

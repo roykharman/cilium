@@ -116,7 +116,7 @@ jobs:
       - name: Set cache keys
         id: cache_keys
         run: |
-          echo "go_cache_key=${{ runner.os }}-test-go-cache-${{ hashFiles('cilium-checkout/**/go.sum') }}" >> $GITHUB_OUTPUT
+          echo "go_cache_key=${{ runner.os }}-test-go-cache-${{ matrix.name }}-${{ hashFiles('cilium-checkout/**/go.sum') }}" >> $GITHUB_OUTPUT
 
       - name: Check for disk usage
         shell: bash
@@ -139,7 +139,7 @@ jobs:
           fail-on-cache-miss: true
           key: ${{ steps.cache_keys.outputs.go_cache_key }}
           restore-keys: |
-            ${{ runner.os }}-test-go-cache-
+            ${{ runner.os }}-test-go-cache-${{ matrix.name }}-
 
       - name: Create cache directories if they don't exist
         if: ${{ steps.go-cache.outputs.cache-hit != 'true' }}
