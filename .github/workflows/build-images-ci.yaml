@@ -166,8 +166,6 @@ jobs:
           # re-pushing the image tags when we only want to re-create the Golang
           # docker cache after the workflow "Image CI Cache Cleaner" was terminated.
           push: ${{ github.event_name == 'push' }}
-          cache-from: type=local,src=/tmp/docker-cache
-          cache-to: type=local,dest=/tmp/docker-cache
           platforms: ${{ matrix.platforms }}
           tags: |
             quay.io/${{ env.QUAY_ORGANIZATION_DEV }}/${{ matrix.name }}-ci:${{ steps.tag.outputs.floating_tag }}
@@ -188,8 +186,6 @@ jobs:
           # re-pushing the image tags when we only want to re-create the Golang
           # docker cache after the workflow "Image CI Cache Cleaner" was terminated.
           push: ${{ github.event_name == 'push' }}
-          cache-from: type=local,src=/tmp/docker-cache
-          cache-to: type=local,dest=/tmp/docker-cache
           platforms: linux/amd64
           tags: |
             quay.io/${{ env.QUAY_ORGANIZATION_DEV }}/${{ matrix.name }}-ci:${{ steps.tag.outputs.floating_tag }}-race
@@ -212,8 +208,6 @@ jobs:
           # re-pushing the image tags when we only want to re-create the Golang
           # docker cache after the workflow "Image CI Cache Cleaner" was terminated.
           push: ${{ github.event_name == 'push' }}
-          cache-from: type=local,src=/tmp/docker-cache
-          cache-to: type=local,dest=/tmp/docker-cache
           platforms: linux/amd64
           tags: |
             quay.io/${{ env.QUAY_ORGANIZATION_DEV }}/${{ matrix.name }}-ci:${{ steps.tag.outputs.floating_tag }}-unstripped
@@ -300,8 +294,6 @@ jobs:
           file: ${{ matrix.dockerfile }}
           push: true
           platforms: ${{ matrix.platforms }}
-          cache-from: type=local,src=/tmp/docker-cache
-          cache-to: type=local,dest=/tmp/docker-cache
           tags: |
             quay.io/${{ env.QUAY_ORGANIZATION_DEV }}/${{ matrix.name }}-ci:${{ steps.tag.outputs.tag }}
           target: release
@@ -318,8 +310,6 @@ jobs:
           file: ${{ matrix.dockerfile }}
           push: true
           platforms: linux/amd64
-          cache-from: type=local,src=/tmp/docker-cache
-          cache-to: type=local,dest=/tmp/docker-cache
           tags: |
             quay.io/${{ env.QUAY_ORGANIZATION_DEV }}/${{ matrix.name }}-ci:${{ steps.tag.outputs.tag }}-race
           target: release
@@ -338,8 +328,6 @@ jobs:
           file: ${{ matrix.dockerfile }}
           push: true
           platforms: linux/amd64
-          cache-from: type=local,src=/tmp/docker-cache
-          cache-to: type=local,dest=/tmp/docker-cache
           tags: |
             quay.io/${{ env.QUAY_ORGANIZATION_DEV }}/${{ matrix.name }}-ci:${{ steps.tag.outputs.tag }}-unstripped
           target: release
