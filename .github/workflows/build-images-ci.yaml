@@ -359,7 +359,7 @@ jobs:
           cosign sign -y quay.io/${{ env.QUAY_ORGANIZATION_DEV }}/${{ matrix.name }}-ci@${{ steps.docker_build_ci_pr_unstripped.outputs.digest }}
 
       - name: Generate SBOM
-        if: ${{ github.event_name == 'pull_request' || (github.event_name == 'push' && startsWith(github.ref_name, 'ft/')) }}
+        if: ${{ matrix.name != 'cilium-cli' && (github.event_name == 'pull_request' || (github.event_name == 'push' && startsWith(github.ref_name, 'ft/'))) }}
         uses: anchore/sbom-action@61119d458adab75f756bc0b9e4bde25725f86a7a # v0.17.2
         with:
           artifact-name: sbom_ci_pr_${{ matrix.name }}_${{ steps.tag.outputs.tag }}.spdx.json
@@ -367,7 +367,7 @@ jobs:
           image: quay.io/${{ env.QUAY_ORGANIZATION_DEV }}/${{ matrix.name }}-ci:${{ steps.tag.outputs.tag }}
 
       - name: Generate SBOM (race)
-        if: ${{ github.event_name == 'pull_request' || (github.event_name == 'push' && startsWith(github.ref_name, 'ft/')) }}
+        if: ${{ matrix.name != 'cilium-cli' && (github.event_name == 'pull_request' || (github.event_name == 'push' && startsWith(github.ref_name, 'ft/'))) }}
         uses: anchore/sbom-action@61119d458adab75f756bc0b9e4bde25725f86a7a # v0.17.2
         with:
           artifact-name: sbom_ci_pr_race_${{ matrix.name }}_${{ steps.tag.outputs.tag }}.spdx.json
@@ -375,7 +375,7 @@ jobs:
           image: quay.io/${{ env.QUAY_ORGANIZATION_DEV }}/${{ matrix.name }}-ci:${{ steps.tag.outputs.tag }}-race
 
       - name: Generate SBOM (unstripped)
-        if: ${{ github.event_name == 'pull_request' || (github.event_name == 'push' && startsWith(github.ref_name, 'ft/')) }}
+        if: ${{ matrix.name != 'cilium-cli' && (github.event_name == 'pull_request' || (github.event_name == 'push' && startsWith(github.ref_name, 'ft/'))) }}
         uses: anchore/sbom-action@61119d458adab75f756bc0b9e4bde25725f86a7a # v0.17.2
         with:
           artifact-name: sbom_ci_pr_unstripped_${{ matrix.name }}_${{ steps.tag.outputs.tag }}.spdx.json
@@ -383,7 +383,7 @@ jobs:
           image: quay.io/${{ env.QUAY_ORGANIZATION_DEV }}/${{ matrix.name }}-ci:${{ steps.tag.outputs.tag }}-unstripped
 
       - name: Attach SBOM attestation to container image
-        if: ${{ github.event_name == 'pull_request' || (github.event_name == 'push' && startsWith(github.ref_name, 'ft/')) }}
+        if: ${{ matrix.name != 'cilium-cli' && (github.event_name == 'pull_request' || (github.event_name == 'push' && startsWith(github.ref_name, 'ft/'))) }}
         run: |
           cosign attest -r -y --predicate sbom_ci_pr_${{ matrix.name }}_${{ steps.tag.outputs.tag }}.spdx.json --type spdxjson quay.io/${{ env.QUAY_ORGANIZATION_DEV }}/${{ matrix.name }}-ci@${{ steps.docker_build_ci_pr.outputs.digest }}
           cosign attest -r -y --predicate sbom_ci_pr_race_${{ matrix.name }}_${{ steps.tag.outputs.tag }}.spdx.json --type spdxjson quay.io/${{ env.QUAY_ORGANIZATION_DEV }}/${{ matrix.name }}-ci@${{ steps.docker_build_ci_pr_detect_race_condition.outputs.digest }}
