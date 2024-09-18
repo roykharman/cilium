@@ -130,9 +130,9 @@ jobs:
         with:
           path: /mnt/go/src/github.com/cilium/cilium/hack/cache/go
           fail-on-cache-miss: true
-          key: ${{ runner.os }}-test-go-cache-${{ matrix.name }}-${{ hashFiles('**/go.sum') }}
+          key: ${{ runner.os }}-test-go-${{ matrix.name }}-cache-${{ hashFiles('**/go.sum') }}
           restore-keys: |
-            ${{ runner.os }}-test-go-cache-${{ matrix.name }}-
+            ${{ runner.os }}-test-go-${{ matrix.name }}-cache-
 
       - name: Check for disk usage
         shell: bash
