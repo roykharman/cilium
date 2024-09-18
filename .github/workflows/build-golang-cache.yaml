@@ -131,11 +131,13 @@ jobs:
         if: ${{ steps.go-cache.outputs.cache-hit != 'true' || steps.ccache-cache.outputs.cache-hit != 'true' }}
         run: |
           set -eu -o pipefail
-          if [[ ${{ matrix.name }} != cilium-cli ]]; then
+          if [[ ${{ matrix.name }} != cilium-cli || ${{ matrix.name }} != cilium ]]; then
             contrib/scripts/builder.sh make CLANG="${CLANG}" GOARCH=arm64 ${{ matrix.make-target }} -j $(nproc) || exit 1
           fi
-          contrib/scripts/builder.sh make CLANG="${CLANG}" GOARCH=amd64 NOSTRIP=1 ${{ matrix.make-target }} -j $(nproc) || exit 1
-          contrib/scripts/builder.sh make CLANG="${CLANG}" GOARCH=amd64 LOCKDEBUG=1 RACE=1 ${{ matrix.make-target }} -j $(nproc) || exit 1
+          if [[ ${{ matrix.name }} != cilium ]]; then
+            contrib/scripts/builder.sh make CLANG="${CLANG}" GOARCH=amd64 NOSTRIP=1 ${{ matrix.make-target }} -j $(nproc) || exit 1
+            contrib/scripts/builder.sh make CLANG="${CLANG}" GOARCH=amd64 LOCKDEBUG=1 RACE=1 ${{ matrix.make-target }} -j $(nproc) || exit 1
+          fi
           contrib/scripts/builder.sh make CLANG="${CLANG}" GOARCH=amd64 ${{ matrix.make-target }} -j $(nproc) || exit 1
 
       - name: Reset cache ownership to GitHub runners user
