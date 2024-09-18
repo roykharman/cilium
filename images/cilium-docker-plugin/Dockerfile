@@ -18,10 +18,9 @@ ARG MODIFIERS
 
 WORKDIR /go/src/github.com/cilium/cilium/plugins/cilium-docker
 RUN --mount=type=bind,readwrite,target=/go/src/github.com/cilium/cilium \
-    make \
-     GOCACHE='/go/src/github.com/cilium/cilium/hack/cache/go/.cache/go-build' \
-     GOMODCACHE='/go/src/github.com/cilium/cilium/hack/cache/go/pkg' \
-    GOARCH=${TARGETARCH} ${MODIFIERS} \
+    --mount=type=cache,target=/root/.cache \
+    --mount=type=cache,target=/go/pkg \
+    make GOARCH=${TARGETARCH} ${MODIFIERS} \
     && mkdir -p /out/${TARGETOS}/${TARGETARCH}/usr/bin && mv cilium-docker /out/${TARGETOS}/${TARGETARCH}/usr/bin
 
 FROM ${BASE_IMAGE} AS release

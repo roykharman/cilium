@@ -17,10 +17,9 @@ ARG TARGETARCH
 WORKDIR /go/src/github.com/cilium/cilium
 
 RUN --mount=type=bind,readwrite,target=/go/src/github.com/cilium/cilium \
-    make \
-     GOCACHE='/go/src/github.com/cilium/cilium/hack/cache/go/.cache/go-build' \
-     GOMODCACHE='/go/src/github.com/cilium/cilium/hack/cache/go/pkg' \
-    GOARCH=${TARGETARCH} DESTDIR=/out/${TARGETOS}/${TARGETARCH} ${MODIFIERS} \
+    --mount=type=cache,target=/root/.cache \
+    --mount=type=cache,target=/go/pkg \
+    make GOARCH=${TARGETARCH} DESTDIR=/out/${TARGETOS}/${TARGETARCH} ${MODIFIERS} \
     -C cilium-cli install
 
 FROM docker.io/library/ubuntu:24.04@sha256:8a37d68f4f73ebf3d4efafbcf66379bf3728902a8038616808f04e34a9ab63ee AS release

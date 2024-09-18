@@ -31,20 +31,18 @@ WORKDIR /go/src/github.com/cilium/cilium/clustermesh-apiserver
 RUN --mount=type=bind,readwrite,target=/go/src/github.com/cilium/cilium \
     mkdir -p /out/${TARGETOS}/${TARGETARCH} && cp etcd-config.yaml /out/${TARGETOS}/${TARGETARCH}/etcd-config.yaml
 RUN --mount=type=bind,readwrite,target=/go/src/github.com/cilium/cilium \
-    make \
-     GOCACHE='/go/src/github.com/cilium/cilium/hack/cache/go/.cache/go-build' \
-     GOMODCACHE='/go/src/github.com/cilium/cilium/hack/cache/go/pkg' \
-     GOARCH=${TARGETARCH} ${MODIFIERS} \
+    --mount=type=cache,target=/root/.cache \
+    --mount=type=cache,target=/go/pkg \
+    make GOARCH=${TARGETARCH} ${MODIFIERS} \
     && mkdir -p /out/${TARGETOS}/${TARGETARCH}/usr/bin && mv clustermesh-apiserver /out/${TARGETOS}/${TARGETARCH}/usr/bin
 
 WORKDIR /go/src/github.com/cilium/cilium
 # licenses-all is a "script" that executes "go run" so its ARCH should be set
 # to the same ARCH specified in the base image of this Docker stage (BUILDARCH)
 RUN --mount=type=bind,readwrite,target=/go/src/github.com/cilium/cilium \
-    make \
-     GOCACHE='/go/src/github.com/cilium/cilium/hack/cache/go/.cache/go-build' \
-     GOMODCACHE='/go/src/github.com/cilium/cilium/hack/cache/go/pkg' \
-    GOARCH=${BUILDARCH} licenses-all && mv LICENSE.all /out/${TARGETOS}/${TARGETARCH}
+    --mount=type=cache,target=/root/.cache \
+    --mount=type=cache,target=/go/pkg \
+    make GOARCH=${BUILDARCH} licenses-all && mv LICENSE.all /out/${TARGETOS}/${TARGETARCH}
 
 # BUILDPLATFORM is an automatic platform ARG enabled by Docker BuildKit.
 # Represents the plataform where the build is happening, do not mix with
@@ -54,9 +52,9 @@ FROM --platform=${BUILDPLATFORM} ${GOLANG_IMAGE} AS gops
 # build-gops.sh will build both archs at the same time
 WORKDIR /go/src/github.com/cilium/cilium/images/runtime
 RUN apt-get update && apt-get install -y binutils-aarch64-linux-gnu binutils-x86-64-linux-gnu
-ENV GOCACHE='/go/src/github.com/cilium/cilium/hack/cache/go/.cache/go-build'
-ENV GOMODCACHE='/go/src/github.com/cilium/cilium/hack/cache/go/pkg'
 RUN --mount=type=bind,readwrite,target=/go/src/github.com/cilium/cilium \
+    --mount=type=cache,target=/root/.cache \
+    --mount=type=cache,target=/go/pkg \
     ./build-gops.sh
 
 FROM --platform=${TARGETARCH} ${ETCD_SERVER_IMAGE} AS etcd

@@ -110,25 +110,18 @@ jobs:
         uses: actions/checkout@692973e3d937129bcbf40652eb9f2f61becf3332 # v4.1.7
         with:
           persist-credentials: false
-          path: "cilium-checkout"
           ref: ${{ steps.tag.outputs.tag }}
-
-      - name: Set cache keys
-        id: cache_keys
-        run: |
-          echo "go_cache_key=${{ runner.os }}-test-go-cache-${{ matrix.name }}-${{ hashFiles('cilium-checkout/**/go.sum') }}" >> $GITHUB_OUTPUT
 
       - name: Check for disk usage
         shell: bash
         run: |
           df -h
 
-      - name: Move Source Code to /mnt directory
+      - name: Create ${{ matrix.name }} cache directory
         shell: bash
         run: |
-          sudo mkdir -p /mnt/go/src/github.com/cilium
-          sudo chown $USER:$USER /mnt/go/src/github.com/cilium
-          mv cilium-checkout /mnt/go/src/github.com/cilium/cilium
+          sudo mkdir -p /mnt/go/src/github.com/cilium/cilium/hack/cache
+          sudo chown $USER:$USER /mnt/go/src/github.com/cilium/cilium/hack/cache
 
       # Load Golang cache build from GitHub
       - name: Restore Golang cache build from GitHub
@@ -137,22 +130,25 @@ jobs:
         with:
           path: /mnt/go/src/github.com/cilium/cilium/hack/cache/go
           fail-on-cache-miss: true
-          key: ${{ steps.cache_keys.outputs.go_cache_key }}
+          key: ${{ runner.os }}-test-go-cache-${{ matrix.name }}-${{ hashFiles('**/go.sum') }}
           restore-keys: |
             ${{ runner.os }}-test-go-cache-${{ matrix.name }}-
-
-      - name: Create cache directories if they don't exist
-        if: ${{ steps.go-cache.outputs.cache-hit != 'true' }}
-        shell: bash
-        working-directory: "/mnt/go/src/github.com/cilium/cilium"
-        run: |
-          mkdir -p ./hack/cache/go/.cache/go-build
-          mkdir -p ./hack/cache/go/pkg
 
       - name: Check for disk usage
         shell: bash
         run: |
           df -h
+
+      # Import GitHub's cache build to docker cache
+      - name: Copy ${{ matrix.name }} Golang cache to docker cache
+        uses: docker/build-push-action@5cd11c3a4ced054e52742c5fd54dca954e0edd85 # v6.7.0
+        with:
+          provenance: false
+          context: /mnt/go/src/github.com/cilium/cilium/hack/cache/go
+          file: ./images/cache/Dockerfile
+          push: false
+          platforms: linux/amd64
+          target: import-cache
 
       - name: Install Cosign
         uses: sigstore/cosign-installer@4959ce089c160fddf62f7b42464195ba1a56d382 # v3.6.0
@@ -164,8 +160,8 @@ jobs:
         id: docker_build_ci
         with:
           provenance: false
-          context: /mnt/go/src/github.com/cilium/cilium
-          file: /mnt/go/src/github.com/cilium/cilium/${{ matrix.dockerfile }}
+          context: .
+          file: ${{ matrix.dockerfile }}
           # Only push when the event name was a GitHub push, this is to avoid
           # re-pushing the image tags when we only want to re-create the Golang
           # docker cache after the workflow "Image CI Cache Cleaner" was terminated.
@@ -186,8 +182,8 @@ jobs:
         id: docker_build_ci_detect_race_condition
         with:
           provenance: false
-          context: /mnt/go/src/github.com/cilium/cilium
-          file: /mnt/go/src/github.com/cilium/cilium/${{ matrix.dockerfile }}
+          context: .
+          file: ${{ matrix.dockerfile }}
           # Only push when the event name was a GitHub push, this is to avoid
           # re-pushing the image tags when we only want to re-create the Golang
           # docker cache after the workflow "Image CI Cache Cleaner" was terminated.
@@ -210,8 +206,8 @@ jobs:
         id: docker_build_ci_unstripped
         with:
           provenance: false
-          context: /mnt/go/src/github.com/cilium/cilium
-          file: /mnt/go/src/github.com/cilium/cilium/${{ matrix.dockerfile }}
+          context: .
+          file: ${{ matrix.dockerfile }}
           # Only push when the event name was a GitHub push, this is to avoid
           # re-pushing the image tags when we only want to re-create the Golang
           # docker cache after the workflow "Image CI Cache Cleaner" was terminated.
@@ -300,8 +296,8 @@ jobs:
         id: docker_build_ci_pr
         with:
           provenance: false
-          context: /mnt/go/src/github.com/cilium/cilium
-          file: /mnt/go/src/github.com/cilium/cilium/${{ matrix.dockerfile }}
+          context: .
+          file: ${{ matrix.dockerfile }}
           push: true
           platforms: ${{ matrix.platforms }}
           cache-from: type=local,src=/tmp/docker-cache
@@ -318,8 +314,8 @@ jobs:
         id: docker_build_ci_pr_detect_race_condition
         with:
           provenance: false
-          context: /mnt/go/src/github.com/cilium/cilium
-          file: /mnt/go/src/github.com/cilium/cilium/${{ matrix.dockerfile }}
+          context: .
+          file: ${{ matrix.dockerfile }}
           push: true
           platforms: linux/amd64
           cache-from: type=local,src=/tmp/docker-cache
@@ -338,8 +334,8 @@ jobs:
         id: docker_build_ci_pr_unstripped
         with:
           provenance: false
-          context: /mnt/go/src/github.com/cilium/cilium
-          file: /mnt/go/src/github.com/cilium/cilium/${{ matrix.dockerfile }}
+          context: .
+          file: ${{ matrix.dockerfile }}
           push: true
           platforms: linux/amd64
           cache-from: type=local,src=/tmp/docker-cache
