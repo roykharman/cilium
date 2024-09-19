@@ -26,7 +26,7 @@ func (t localRedirectPolicy) build(ct *check.ConnectivityTest, _ map[string]stri
 	lrpFrontendIPSkipRedirect := "169.254.169.255"
 	newTest("local-redirect-policy", ct).
 		WithCondition(func() bool {
-			return versioncheck.MustCompile(">=1.16.0")(ct.CiliumVersion)
+			return versioncheck.MustCompile(">=1.17.0")(ct.CiliumVersion)
 		}).
 		WithCiliumLocalRedirectPolicy(check.CiliumLocalRedirectPolicyParams{
 			Policy:                  localRedirectPolicyYAML,
@@ -42,7 +42,6 @@ func (t localRedirectPolicy) build(ct *check.ConnectivityTest, _ map[string]stri
 			SkipRedirectFromBackend: true,
 		}).
 		WithFeatureRequirements(features.RequireEnabled(features.LocalRedirectPolicy)).
-		WithFeatureRequirements(features.RequireEnabled(features.KPRSocketLB)).
 		WithScenarios(
 			tests.LRP(false),
 			tests.LRP(true),
