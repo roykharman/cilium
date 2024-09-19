@@ -35,8 +35,8 @@ ARG MODIFIERS
 #
 WORKDIR /go/src/github.com/cilium/cilium
 RUN --mount=type=bind,readwrite,target=/go/src/github.com/cilium/cilium \
-    --mount=type=cache,target=/root/.cache \
-    --mount=type=cache,target=/go/pkg \
+    --mount=type=cache,sharing=locked,target=/root/.cache \
+    --mount=type=cache,sharing=locked,target=/go/pkg \
     make GOARCH=${TARGETARCH} DESTDIR=/tmp/install/${TARGETOS}/${TARGETARCH} PKG_BUILD=1 ${MODIFIERS} \
     build-container install-container-binary
 
