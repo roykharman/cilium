@@ -8,9 +8,7 @@ package server
 import (
 	"context"
 	"crypto/tls"
-	"crypto/x509"
 	"errors"
-	"fmt"
 	"log"
 	"net"
 	"net/http"
@@ -23,10 +21,11 @@ import (
 	"github.com/go-openapi/loads"
 	"github.com/go-openapi/runtime/middleware"
 	"github.com/go-openapi/swag"
-	"github.com/sirupsen/logrus"
-	"github.com/spf13/pflag"
 	"golang.org/x/net/netutil"
 
+	"github.com/cilium/cilium/api/v1/client"
+	"github.com/cilium/cilium/api/v1/models"
+	swaggerserversrv "github.com/cilium/cilium/api/v1/server"
 	"github.com/cilium/cilium/api/v1/server/restapi"
 	"github.com/cilium/cilium/api/v1/server/restapi/bgp"
 	"github.com/cilium/cilium/api/v1/server/restapi/daemon"
@@ -39,7 +38,6 @@ import (
 	"github.com/cilium/cilium/api/v1/server/restapi/service"
 	"github.com/cilium/hive/cell"
 
-	"github.com/cilium/cilium/pkg/api"
 	"github.com/cilium/cilium/pkg/hive"
 )
 
